@@ -1,0 +1,917 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peta Emisi Truk & RTH Solo-Semarang via Boyolali</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+
+        .legend {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            line-height: 24px;
+            font-size: 13px;
+        }
+
+        .legend h4 {
+            margin: 0 0 10px;
+            font-size: 15px;
+            font-weight: bold;
+        }
+
+        .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.8;
+            border-radius: 3px;
+        }
+
+        .info-box {
+            background: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            max-width: 280px;
+        }
+
+        .info-box h3 {
+            margin: 0 0 10px;
+            font-size: 16px;
+            color: #2c5282;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            font-size: 13px;
+        }
+
+        .popup-content {
+            min-width: 250px;
+        }
+
+        .popup-content h3 {
+            margin: 0 0 10px;
+            color: #2c5282;
+            font-size: 16px;
+            border-bottom: 2px solid #4299e1;
+            padding-bottom: 5px;
+        }
+
+        .popup-content .stat {
+            margin: 8px 0;
+            padding: 5px;
+            background: #f7fafc;
+            border-radius: 4px;
+        }
+
+        .popup-content .stat strong {
+            color: #2d3748;
+        }
+
+        .emission-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .high {
+            background: #fc8181;
+            color: white;
+        }
+
+        .medium {
+            background: #f6ad55;
+            color: white;
+        }
+
+        .low {
+            background: #68d391;
+            color: white;
+        }
+
+        .city-label {
+            background: white;
+            padding: 5px 10px;
+            border: 2px solid #4299e1;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 14px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            white-space: nowrap;
+        }
+
+        .leaflet-popup-content {
+            margin: 13px;
+        }
+
+        @media (max-width: 600px) {
+            .info-box {
+                max-width: 220px;
+            }
+
+            .info-box h3 {
+                font-size: 14px;
+            }
+
+            .info-box p {
+                font-size: 11px;
+            }
+
+            .legend {
+                font-size: 11px;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<script>
+
+// ==========================================
+// 1. INISIALISASI PETA
+// ==========================================
+
+const map = L.map('map').setView([-7.3, 110.5], 10);
+
+
+// ==========================================
+// 2. BASEMAP ESRI WORLD STREET MAP
+// ==========================================
+
+const esriStreet = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    {
+        attribution: 'Tiles &copy; Esri',
+        maxZoom: 19,
+        minZoom: 3
+    }
+).addTo(map);
+
+
+// ==========================================
+// 3. DATA SEGMEN JALAN SOLO-SEMARANG
+// ==========================================
+
+const roadSegments = [
+
+    {
+        name: "Solo Kota - Jl. Slamet Riyadi",
+        coords: [
+            [-7.5656, 110.8211],
+            [-7.5600, 110.8100],
+            [-7.5550, 110.7950]
+        ],
+        wilayah: "Kota Solo",
+        truckCount: 25,
+        truckBesar: 10,
+        direction: "Keluar Solo ke Barat",
+        emissionLevel: "tinggi",
+        distance: 8
+    },
+
+    {
+        name: "Solo - Perbatasan Boyolali",
+        coords: [
+            [-7.5550, 110.7950],
+            [-7.5500, 110.7500],
+            [-7.5450, 110.7100]
+        ],
+        wilayah: "Pinggiran Solo",
+        truckCount: 22,
+        truckBesar: 9,
+        direction: "Solo → Boyolali",
+        emissionLevel: "tinggi",
+        distance: 12
+    },
+
+    {
+        name: "Perbatasan Solo - Terminal Lama Boyolali",
+        coords: [
+            [-7.5450, 110.7100],
+            [-7.5400, 110.6500],
+            [-7.5317, 110.5954]
+        ],
+        wilayah: "Boyolali Timur",
+        truckCount: 18,
+        truckBesar: 6,
+        direction: "Masuk Boyolali dari Solo",
+        emissionLevel: "tinggi",
+        distance: 10
+    },
+
+    {
+        name: "Terminal Lama Boyolali - Pusat Kota",
+        coords: [
+            [-7.5317, 110.5954],
+            [-7.5280, 110.6100],
+            [-7.5250, 110.6250]
+        ],
+        wilayah: "Boyolali Kota",
+        truckCount: 20,
+        truckBesar: 7,
+        direction: "Transit Pusat Boyolali",
+        emissionLevel: "tinggi",
+        distance: 8
+    },
+
+    {
+        name: "Pusat Boyolali - Keluar ke Barat",
+        coords: [
+            [-7.5317, 110.5954],
+            [-7.5350, 110.5800],
+            [-7.5380, 110.5650]
+        ],
+        wilayah: "Boyolali Barat",
+        truckCount: 15,
+        truckBesar: 5,
+        direction: "Keluar Boyolali ke Semarang",
+        emissionLevel: "sedang",
+        distance: 7
+    },
+
+    {
+        name: "Boyolali - Perbatasan Ambarawa",
+        coords: [
+            [-7.5380, 110.5650],
+            [-7.5420, 110.5300],
+            [-7.5450, 110.4950]
+        ],
+        wilayah: "Pinggiran Boyolali",
+        truckCount: 12,
+        truckBesar: 4,
+        direction: "Boyolali → Ambarawa",
+        emissionLevel: "sedang",
+        distance: 9
+    },
+
+    {
+        name: "Ambarawa - Bawen",
+        coords: [
+            [-7.5450, 110.4950],
+            [-7.5100, 110.4500],
+            [-7.4800, 110.4200]
+        ],
+        wilayah: "Ambarawa-Bawen",
+        truckCount: 16,
+        truckBesar: 6,
+        direction: "Transit Ambarawa",
+        emissionLevel: "sedang",
+        distance: 11
+    },
+
+    {
+        name: "Ungaran - Jalan Tol Tembalang",
+        coords: [
+            [-7.4800, 110.4200],
+            [-7.4500, 110.3900],
+            [-7.4200, 110.3700]
+        ],
+        wilayah: "Ungaran",
+        truckCount: 19,
+        truckBesar: 8,
+        direction: "Ungaran → Semarang",
+        emissionLevel: "tinggi",
+        distance: 10
+    },
+
+    {
+        name: "Pinggiran Semarang - Banyumanik",
+        coords: [
+            [-7.4200, 110.3700],
+            [-7.3900, 110.4100],
+            [-7.3700, 110.4300]
+        ],
+        wilayah: "Semarang Selatan",
+        truckCount: 23,
+        truckBesar: 9,
+        direction: "Masuk Semarang",
+        emissionLevel: "tinggi",
+        distance: 9
+    },
+
+    {
+        name: "Semarang Kota - Pelabuhan",
+        coords: [
+            [-7.3700, 110.4300],
+            [-7.3500, 110.4200],
+            [-7.3000, 110.4100],
+            [-6.9900, 110.4200]
+        ],
+        wilayah: "Kota Semarang",
+        truckCount: 28,
+        truckBesar: 12,
+        direction: "Menuju Pelabuhan Tanjung Emas",
+        emissionLevel: "tinggi",
+        distance: 15
+    }
+
+];
+
+
+// ==========================================
+// 4. FUNGSI PERHITUNGAN EMISI DAN RTH
+// ==========================================
+
+function calculateEmission(truckCount, truckBesar, distance) {
+
+    const emissionKecil = truckCount * 0.8 * distance;
+    const emissionBesar = truckBesar * 2.5 * distance;
+
+    return (emissionKecil + emissionBesar).toFixed(2);
+}
+
+
+function calculateRTH(emission) {
+
+    return Math.ceil(emission / 0.5);
+
+}
+
+
+function getColor(level) {
+
+    return level === 'tinggi' ? '#e53e3e' :
+           level === 'sedang' ? '#ed8936' :
+           '#48bb78';
+
+}
+
+
+// ==========================================
+// 5. VISUALISASI SEGMEN JALAN
+// ==========================================
+
+roadSegments.forEach(segment => {
+
+    const emission = calculateEmission(
+        segment.truckCount,
+        segment.truckBesar,
+        segment.distance
+    );
+
+    const rthNeeded = calculateRTH(emission);
+
+
+    // Garis utama jalan
+
+    const polyline = L.polyline(segment.coords, {
+        color: getColor(segment.emissionLevel),
+        weight: 6,
+        opacity: 0.9,
+        lineCap: 'round',
+        lineJoin: 'round'
+    }).addTo(map);
+
+
+    // Visualisasi koridor dampak secara simbolis
+    // Garis tebal transparan, bukan buffer geospasial 200 meter
+
+    const buffer = L.polyline(segment.coords, {
+        color: getColor(segment.emissionLevel),
+        weight: 20,
+        opacity: 0.15,
+        lineCap: 'round',
+        lineJoin: 'round',
+        interactive: false
+    }).addTo(map);
+
+
+    // Popup informasi segmen jalan
+
+    const popupContent = `
+        <div class="popup-content">
+
+            <h3>📍 ${segment.name}</h3>
+
+            <div class="stat">
+                <strong>📌 Wilayah:</strong> ${segment.wilayah}
+            </div>
+
+            <div class="stat">
+                <strong>Arah:</strong> ${segment.direction}
+            </div>
+
+            <div class="stat">
+                <strong>📏 Panjang Segmen:</strong> ${segment.distance} km
+            </div>
+
+            <div class="stat">
+                <strong>🚛 Truk Kecil/hari:</strong> ${segment.truckCount} unit
+            </div>
+
+            <div class="stat">
+                <strong>🚚 Truk Besar/hari:</strong> ${segment.truckBesar} unit
+            </div>
+
+            <div class="stat">
+                <strong>💨 Emisi CO2:</strong> ${emission} kg/hari
+            </div>
+
+            <div class="stat">
+                <strong>🌳 RTH Dibutuhkan:</strong> ${rthNeeded} m²
+                <br>
+                <small>(≈ ${(rthNeeded / 10000).toFixed(2)} hektar)</small>
+            </div>
+
+            <span class="emission-badge ${
+                segment.emissionLevel === 'tinggi' ? 'high' :
+                segment.emissionLevel === 'sedang' ? 'medium' : 'low'
+            }">
+                Emisi ${segment.emissionLevel.toUpperCase()}
+            </span>
+
+        </div>
+    `;
+
+    polyline.bindPopup(popupContent);
+
+});
+
+
+// ==========================================
+// 6. MARKER KOTA UTAMA
+// ==========================================
+
+const cities = [
+
+    {
+        name: "SOLO",
+        coords: [-7.5656, 110.8211],
+        icon: "🏙️"
+    },
+
+    {
+        name: "BOYOLALI",
+        coords: [-7.5317, 110.5954],
+        icon: "🏘️"
+    },
+
+    {
+        name: "AMBARAWA",
+        coords: [-7.5100, 110.4500],
+        icon: "🏘️"
+    },
+
+    {
+        name: "UNGARAN",
+        coords: [-7.4500, 110.3900],
+        icon: "🏘️"
+    },
+
+    {
+        name: "SEMARANG",
+        coords: [-6.9900, 110.4200],
+        icon: "🏙️"
+    }
+
+];
+
+
+cities.forEach(city => {
+
+    L.marker(city.coords, {
+
+        icon: L.divIcon({
+
+            className: 'city-label',
+
+            html: `${city.icon} <strong>${city.name}</strong>`,
+
+            iconSize: [120, 30],
+
+            iconAnchor: [60, 15]
+
+        })
+
+    }).addTo(map);
+
+});
+
+
+// ==========================================
+// 7. DATA LOKASI RTH
+// ==========================================
+
+const rthLocations = [
+
+    {
+        coords: [-7.5600, 110.7950],
+        name: "RTH Solo - Jl. Slamet Riyadi",
+        area: 7000,
+        type: "Taman Kota & Jalur Hijau",
+        wilayah: "Solo"
+    },
+
+    {
+        coords: [-7.5400, 110.6700],
+        name: "RTH Boyolali Timur - Prioritas 1",
+        area: 6000,
+        type: "Hutan Kota",
+        wilayah: "Boyolali"
+    },
+
+    {
+        coords: [-7.5300, 110.6150],
+        name: "RTH Terminal Lama - Prioritas 2",
+        area: 5500,
+        type: "Taman Kota & Buffer Emisi",
+        wilayah: "Boyolali"
+    },
+
+    {
+        coords: [-7.5220, 110.6450],
+        name: "RTH Pusat Kota Boyolali",
+        area: 8000,
+        type: "Hutan Kota Utama",
+        wilayah: "Boyolali"
+    },
+
+    {
+        coords: [-7.5365, 110.5725],
+        name: "RTH Boyolali Barat",
+        area: 4500,
+        type: "Jalur Hijau Jalan",
+        wilayah: "Boyolali"
+    },
+
+    {
+        coords: [-7.5100, 110.4500],
+        name: "RTH Ambarawa",
+        area: 5000,
+        type: "Taman Kota",
+        wilayah: "Ambarawa"
+    },
+
+    {
+        coords: [-7.4500, 110.3900],
+        name: "RTH Ungaran",
+        area: 6500,
+        type: "Hutan Kota",
+        wilayah: "Ungaran"
+    },
+
+    {
+        coords: [-7.3900, 110.4100],
+        name: "RTH Banyumanik Semarang",
+        area: 7500,
+        type: "Hutan Kota",
+        wilayah: "Semarang"
+    },
+
+    {
+        coords: [-7.3000, 110.4100],
+        name: "RTH Semarang Kota",
+        area: 9000,
+        type: "Taman Kota Besar",
+        wilayah: "Semarang"
+    }
+
+];
+
+
+// ==========================================
+// 8. MARKER RTH
+// ==========================================
+
+const greenIcon = L.divIcon({
+
+    className: 'custom-icon',
+
+    html: `
+        <div style="
+            background:#22c55e;
+            width:30px;
+            height:30px;
+            border-radius:50%;
+            border:3px solid white;
+            box-shadow:0 2px 5px rgba(0,0,0,0.3);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size:18px;
+        ">🌳</div>
+    `,
+
+    iconSize: [36, 36],
+
+    iconAnchor: [18, 18]
+
+});
+
+
+rthLocations.forEach(rth => {
+
+    const marker = L.marker(rth.coords, {
+        icon: greenIcon
+    }).addTo(map);
+
+
+    const popupContent = `
+
+        <div class="popup-content">
+
+            <h3>🌳 ${rth.name}</h3>
+
+            <div class="stat">
+                <strong>📌 Wilayah:</strong> ${rth.wilayah}
+            </div>
+
+            <div class="stat">
+                <strong>📏 Luas:</strong> ${rth.area} m²
+                (${(rth.area / 10000).toFixed(2)} ha)
+            </div>
+
+            <div class="stat">
+                <strong>🌲 Jenis RTH:</strong> ${rth.type}
+            </div>
+
+            <div class="stat">
+                <strong>💨 Kapasitas Serapan:</strong>
+                ${(rth.area * 0.5).toFixed(0)} kg CO2/hari
+            </div>
+
+        </div>
+
+    `;
+
+    marker.bindPopup(popupContent);
+
+});
+
+
+// ==========================================
+// 9. MARKER TERMINAL LAMA BOYOLALI
+// ==========================================
+
+const terminalIcon = L.divIcon({
+
+    className: 'custom-icon',
+
+    html: `
+        <div style="
+            background:#3b82f6;
+            width:38px;
+            height:38px;
+            border-radius:50%;
+            border:3px solid white;
+            box-shadow:0 3px 8px rgba(0,0,0,0.4);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size:22px;
+        ">🚏</div>
+    `,
+
+    iconSize: [44, 44],
+
+    iconAnchor: [22, 22]
+
+});
+
+
+L.marker([-7.5317, 110.5954], {
+    icon: terminalIcon
+})
+
+.addTo(map)
+
+.bindPopup(`
+
+    <div class="popup-content">
+
+        <h3>🚏 Terminal Lama Boyolali</h3>
+
+        <div class="stat">
+            <strong>📍 Titik Pengamatan Utama</strong>
+            <br>
+            Jl. Raya Solo-Semarang
+        </div>
+
+        <div class="stat">
+            <strong>📊 Data Observasi:</strong>
+            8 hari
+            <br>
+            Rata-rata: 10-20 truk/hari
+        </div>
+
+        <div class="stat">
+            <strong>🚛 Perusahaan Tercatat:</strong>
+
+            <br>
+
+            <small>
+                PIL, J&T, Gatotkaca Express, Duta Trans,
+                Pertamina, KOBO HAHA, June Logistics,
+                Dwiparama, Gading Trans, dll.
+            </small>
+        </div>
+
+    </div>
+
+`);
+
+
+// ==========================================
+// 10. LEGENDA PETA
+// ==========================================
+
+const legend = L.control({
+    position: 'bottomright'
+});
+
+
+legend.onAdd = function(map) {
+
+    const div = L.DomUtil.create('div', 'legend');
+
+    div.innerHTML = `
+
+        <h4>📊 Tingkat Emisi</h4>
+
+        <i style="background:#e53e3e"></i>
+        Tinggi (>150 kg/hari)<br>
+
+        <i style="background:#ed8936"></i>
+        Sedang (80-150 kg/hari)<br>
+
+        <i style="background:#48bb78"></i>
+        Rendah (<80 kg/hari)<br>
+
+        <hr style="margin:10px 0">
+
+        <h4>🗺️ Legenda</h4>
+
+        <i style="background:#3b82f6"></i>
+        Titik Observasi (Boyolali)<br>
+
+        <i style="background:#22c55e"></i>
+        Lokasi RTH Prioritas<br>
+
+        <div style="
+            margin-top:10px;
+            padding:8px;
+            background:#f0f9ff;
+            border-radius:4px;
+            font-size:11px;
+        ">
+
+            <strong>Info Koridor:</strong><br>
+
+            Area transparan merupakan
+            visualisasi koridor jalan secara simbolis,
+            bukan buffer geospasial terukur.
+
+        </div>
+
+    `;
+
+    return div;
+
+};
+
+
+legend.addTo(map);
+
+
+// ==========================================
+// 11. PANEL INFORMASI PETA
+// ==========================================
+
+const info = L.control({
+    position: 'topleft'
+});
+
+
+info.onAdd = function(map) {
+
+    const div = L.DomUtil.create('div', 'info-box');
+
+    div.innerHTML = `
+
+        <h3>🗺️ Peta Emisi Truk Solo-Semarang</h3>
+
+        <p>
+            <strong>📍 Rute:</strong>
+            Solo → Boyolali → Ambarawa → Ungaran → Semarang
+        </p>
+
+        <p>
+            <strong>📏 Total Jarak:</strong> ~99 km
+        </p>
+
+        <p>
+            <strong>🎯 Fokus:</strong> Boyolali (Data Observasi)
+        </p>
+
+        <p>
+            <strong>📊 Segmen Jalan:</strong>
+            ${roadSegments.length}
+        </p>
+
+        <p>
+            <strong>🌳 Lokasi RTH:</strong>
+            ${rthLocations.length}
+        </p>
+
+        <p style="
+            margin-top:10px;
+            font-size:12px;
+            color:#666;
+        ">
+            💡 Klik jalan atau marker untuk melihat detail.
+        </p>
+
+    `;
+
+    return div;
+
+};
+
+
+info.addTo(map);
+
+
+// ==========================================
+// 12. STATISTIK TOTAL EMISI DAN KEBUTUHAN RTH
+// ==========================================
+
+let totalEmission = 0;
+let totalRTH = 0;
+
+
+roadSegments.forEach(seg => {
+
+    const emission = parseFloat(
+
+        calculateEmission(
+            seg.truckCount,
+            seg.truckBesar,
+            seg.distance
+        )
+
+    );
+
+    totalEmission += emission;
+
+    totalRTH += calculateRTH(emission);
+
+});
+
+
+console.log('✅ Peta Solo-Semarang berhasil dimuat!');
+
+console.log(
+    '📍 Total segmen jalan:',
+    roadSegments.length
+);
+
+console.log(
+    '🌳 Total lokasi RTH:',
+    rthLocations.length
+);
+
+console.log(
+    '💨 Total emisi CO2:',
+    totalEmission.toFixed(2),
+    'kg/hari'
+);
+
+console.log(
+    '🌲 Total kebutuhan RTH:',
+    totalRTH,
+    'm² (',
+    (totalRTH / 10000).toFixed(2),
+    'hektar)'
+);
+
+</script>
+
+</body>
+</html>
